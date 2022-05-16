@@ -14,39 +14,28 @@ pre_shard_it = kinesis.get_shard_iterator(
 )
 shard_it = pre_shard_it["ShardIterator"]
  
-# DynamoDB setup
-dynamodb = boto3.resource('dynamodb', region_name="us-east-1")
-table = dynamodb.Table('CadabraOrders')
- 
+# S3 setup
+s3 = boto3.resource('s3')
+myobject = s3.Object('asign25', 'assignment1.json')
+
+# Initializing empty bytearray
+response = bytearray() 
+        
 while 1==1:
+        
         out = kinesis.get_records(ShardIterator=shard_it, Limit=100)
-        for record in out['Records']:
-                print(record)
-                data = json.loads(record['Data'])
-                if (data['Customer'].isdigit()):
-                    invoice = data['InvoiceNo']
-                    customer = int(data['Customer'])
-                    orderDate = data['InvoiceDate']
-                    quantity = data['Quantity']
-                    description = data['Description']
-                    unitPrice = data['UnitPrice']
-                    country = data['Country'].rstrip()
-                    stockCode = data['StockCode']
- 
-                    # Construct a unique sort key for this line item
-                    orderID = invoice + "-" + stockCode
- 
-                    response = table.put_item(
-                        Item = {
-                            'CustomerID': decimal.Decimal(customer),
-                            'OrderID': orderID,
-                            'OrderDate': orderDate,
-                            'Quantity': decimal.Decimal(quantity),
-                            'UnitPrice': decimal.Decimal(unitPrice),
-                            'Description': description,
-                            'Country': country
-                        }
-                    )
+        for i in range(len(out['Records'])):
+            # Appending data to response variable
+            response.extend(out['Records'][i]['Data'])
+            
+        print(response)
+    
+        # Transferring data to S3
+        myobject.put(Body=response)
+        
+        # Will exit loop once data has been transferred
+        if response != b'':
+            break
  
         shard_it = out["NextShardIterator"]
         time.sleep(1.0)
